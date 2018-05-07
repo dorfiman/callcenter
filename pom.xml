@@ -14,4 +14,9 @@
 		<maven.compiler.source>1.8</maven.compiler.source>
 	</properties>
 
+	<modules>
+		<module>callcenter-core</module>
+		<module>callcenter-model</module>
+	</modules>
+
 </project>
