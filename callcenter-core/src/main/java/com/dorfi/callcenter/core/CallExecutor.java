@@ -14,7 +14,10 @@ import com.dorfi.callcenter.model.Employee;
 
 public class CallExecutor implements Runnable {
 
-	private static Logger logger = LoggerFactory.getLogger(CallExecutor.class);
+    private static final int DURATION_FROM = 5000; // in miliseconds
+    private static final int DURATION_TO = 10000; // in miliseconds
+
+    private static Logger logger = LoggerFactory.getLogger(CallExecutor.class);
 
 	private Call call;
 	private Employee callee;
@@ -34,7 +37,7 @@ public class CallExecutor implements Runnable {
 			call.setDuration(duration);
 			call.setSuccessful(true);
 			logger.debug("Call {} was answered by {} for {} seconds", call.getId(), callee.getName(),
-					MILLISECONDS.convert(duration, SECONDS));
+					SECONDS.convert(duration, MILLISECONDS));
 		} catch (InterruptedException e) {
 			logger.error("Call {} was interrupted!", call.getId(), e);
 			call.setDuration(System.currentTimeMillis() - start);
@@ -44,7 +47,7 @@ public class CallExecutor implements Runnable {
 	}
 
 	private static int calculateDuration() {
-		return ThreadLocalRandom.current().nextInt(5000, 10000 + 1);
+		return ThreadLocalRandom.current().nextInt(DURATION_FROM, DURATION_TO + 1);
 	}
 
 }

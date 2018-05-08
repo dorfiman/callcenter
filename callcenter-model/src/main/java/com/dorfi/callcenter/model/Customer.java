@@ -6,9 +6,13 @@ public class Customer extends Person {
 		BASIC, GOLD, PLATINIUM;
 	}
 
-	private Type type;
+	public Customer(int id, String name) {
+	    super(id, name);
+	}
 
-	public Type getType() {
+    private Type type;
+
+    public Type getType() {
 		return type;
 	}
 

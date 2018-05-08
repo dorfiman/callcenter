@@ -5,11 +5,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +30,7 @@ public class Dispatcher {
 	private Queue<Director> availableDirectors;
 	private Queue<Call> pendingCalls = new ConcurrentLinkedQueue<>();
 	private List<Call> finishedCalls = Collections.synchronizedList(new ArrayList<>());
-	private ExecutorService executorService = Executors.newFixedThreadPool(CONCURRENT_CALLS);
+	ExecutorService executorService = Executors.newFixedThreadPool(CONCURRENT_CALLS);
 
 	public Dispatcher(List<Operator> operators, List<Supervisor> supervisors, List<Director> directors) {
 		this.availableOperators = new ConcurrentLinkedQueue<>(operators);
@@ -40,29 +39,36 @@ public class Dispatcher {
 	}
 
 	public void dispatchCall(Call call) {
-		Optional<Employee> optional = findAvailableCallee();
-		if (optional.isPresent()) {
-			Employee callee = optional.get();
-			dispatchCall(call, callee);
+	    logger.debug("Received call {}", call.getId());
+		Optional<Employee> callee = findAvailableCallee();
+		if (callee.isPresent()) {
+			dispatchCall(call, callee.get());
 		} else {
 			logger.debug("No employee available to answer call {}", call.getId());
+			call.setOnHold(true);
 			pendingCalls.add(call);
 		}
 	}
 
 	private void dispatchCall(Call call, Employee callee) {
-		Future<?> future = executorService.submit(new CallExecutor(call, callee));
-		try {
-			future.get();
-		} catch (InterruptedException | ExecutionException e) {
-			logger.error("Call {} was interrupted!", call.getId(), e);
-			call.setSuccessful(false);
-		}
-		finishedCalls.add(call);
+	    logger.debug("Call {} assigned to {}", call.getId(), callee.getName());
+		CompletableFuture<?> future = CompletableFuture.runAsync(new CallExecutor(call, callee), executorService);
+		future.thenRun(() -> checkPendingCalls(callee)).thenRun(() -> finishCall(call));
+	}  
+
+	private void finishCall(Call call) {
+        logger.debug("Call {} has finished", call.getId());	    
+	    finishedCalls.add(call);
+    }
+
+    private void checkPendingCalls(Employee callee) {
 		pushCallee(callee);
+		logger.debug("Employee {} is free", callee.getName());
 
 		if (!pendingCalls.isEmpty()) {
-			dispatchCall(pendingCalls.poll());
+			Call pendingCall = pendingCalls.poll();
+            logger.debug("Dispatching pending call {}", pendingCall.getId());
+            dispatchCall(pendingCall);
 		}
 	}
 
@@ -90,4 +96,8 @@ public class Dispatcher {
 	public void shutdown() {
 		executorService.shutdown();
 	}
+
+	public List<Call> getFinishedCalls() {
+        return finishedCalls;
+    }
 }
